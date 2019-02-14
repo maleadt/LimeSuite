@@ -113,7 +113,7 @@ StreamChannel::Info StreamChannel::GetInfo()
     stats.overrun = overflow;
     stats.underrun = underflow;
     pktLost = 0;
-    overflow = 0;
+ //   overflow = 0;
     underflow = 0;
     if(config.isTx)
     {
@@ -895,6 +895,7 @@ void Streamer::ReceivePacketsLoop()
             t1 = t2;
             //total number of bytes sent per second
             double dataRate = 1000.0*totalBytesReceived / timePeriod;
+            lime::info("FIFO overflows %d", mRxStreams[0].overflow);
 #ifndef NDEBUG
             lime::log(LOG_LEVEL_DEBUG, "Rx: %.3f MB/s\n", dataRate / 1000000.0);
 #endif

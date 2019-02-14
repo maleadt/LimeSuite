@@ -65,6 +65,7 @@ public:
     {
         assert(buffer != nullptr);
         uint32_t samplesTaken = 0;
+        int samplesDropped = 0;
         std::unique_lock<std::mutex> lck(lock);
         auto t1 = std::chrono::high_resolution_clock::now();
         while (samplesTaken < samplesCount)
@@ -78,6 +79,7 @@ public:
                 {
                     int dropElements = 1+(samplesCount-samplesTaken)/SamplesPacket::maxSamplesInPacket;
                     mHead = (mHead + dropElements) & (mBufferSize - 1);//advance to next one
+                    samplesDropped = (samplesCount-samplesTaken);
                     mElementsFilled -= dropElements;
                 }
                 else  //there is no space, wait on CV to give pop_samples the thread context
@@ -106,7 +108,7 @@ public:
         }
         lck.unlock();
         hasItems.notify_one();
-        return samplesTaken;
+        return samplesTaken-samplesDropped;
     }
 
     /** @brief Takes samples out of FIFO, operation is thread-safe
