@@ -11,6 +11,7 @@
 #cmakedefine ENABLE_PCIE_XILLYBUS
 #cmakedefine ENABLE_REMOTE
 #cmakedefine ENABLE_SPI
+#cmakedefine ENABLE_LITE_PCIE
 
 void __loadConnectionEVB7COMEntry(void);
 void __loadConnectionFX3Entry(void);
@@ -20,6 +21,8 @@ void __loadConnectionFT601Entry(void);
 void __loadConnectionXillybusEntry(void);
 void __loadConnectionRemoteEntry(void);
 void __loadConnectionSPIEntry(void);
+void __loadConnectionLitePCIeEntry(void);
+
 
 void __loadAllConnections(void)
 {
@@ -53,5 +56,9 @@ void __loadAllConnections(void)
 
     #ifdef ENABLE_SPI
     __loadConnectionSPIEntry();
+    #endif
+
+    #ifdef ENABLE_LITE_PCIE
+    __loadConnectionLitePCIeEntry();
     #endif
 }

@@ -148,6 +148,7 @@ include(ConnectionSTREAM_UNITE/CMakeLists.txt)
 #include(ConnectionNovenaRF7/CMakeLists.txt)	#No longer supported
 include(ConnectionFTDI/CMakeLists.txt)
 include(ConnectionXillybus/CMakeLists.txt)
+include(ConnectionLitePCIe/CMakeLists.txt)
 include(ConnectionRemote/CMakeLists.txt)
 include(ConnectionSPI/CMakeLists.txt)
 
