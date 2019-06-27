@@ -45,7 +45,6 @@ private:
 
     bool isConnected;
     std::mutex mTransferLock;
-    static constexpr int testEP = 0;
 };
 
 class ConnectionLitePCIeEntry : public ConnectionRegistryEntry

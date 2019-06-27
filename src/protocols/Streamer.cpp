@@ -831,6 +831,7 @@ void Streamer::ReceivePacketsLoop()
             if(pkt[pktIndex].counter - prevTs != samplesInPacket && pkt[pktIndex].counter != prevTs)
             {
                 int packetLoss = ((pkt[pktIndex].counter - prevTs)/samplesInPacket)-1;
+                printf("%lu %lu\n", pkt[pktIndex].counter, prevTs);
                 for(auto &value: mRxStreams)
                     if (value.used && value.mActive)
                         value.pktLost += packetLoss;
