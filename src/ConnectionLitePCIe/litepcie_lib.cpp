@@ -57,8 +57,8 @@ LitePCIeState *litepcie_open(const char *device_name)
     }
 
     for(int i = 0; i < DMA_ENDPOINT_COUNT; i++){
-        s->rx_fifo[i].front = s->rx_fifo[i].back = 0;
-        s->tx_fifo[i].front = s->tx_fifo[i].back = 0;
+        s->rx_fifo[i].current = 0;
+        s->tx_fifo[i].current = 0;
         s->rx_fifo[i].offset = 0;
         s->tx_fifo[i].offset = 0;
     }
@@ -76,21 +76,15 @@ void litepcie_dma_start(LitePCIeState *s, int buf_size, uint8_t endpoint_nr, uin
     if (channel&DMA_CHANNEL_RX)
     {
         s->rx_fifo[endpoint_nr].buf_size = buf_size;
-        s->rx_fifo[endpoint_nr].front = s->rx_fifo[endpoint_nr].back = 0;
-
-        s->rx_dma_wait[endpoint_nr].buf_num = 0;
-        s->rx_dma_wait[endpoint_nr].timeout = 0;
-        s->rx_dma_wait[endpoint_nr].tx_wait = false;
-        s->rx_dma_wait[endpoint_nr].endpoint_nr = endpoint_nr;
+        s->rx_fifo[endpoint_nr].current = 0;
+        s->rx_fifo[endpoint_nr].offset = 0;
+        litepcie_writel(s, 0xD044, 1);
     }
     if (channel&DMA_CHANNEL_TX)
     {
         s->tx_fifo[endpoint_nr].buf_size = buf_size;
-        s->tx_fifo[endpoint_nr].front = s->tx_fifo[endpoint_nr].back = 0;
-        s->tx_dma_wait[endpoint_nr].buf_num = 0;
-        s->tx_dma_wait[endpoint_nr].timeout = 0;
-        s->tx_dma_wait[endpoint_nr].tx_wait = true;
-        s->tx_dma_wait[endpoint_nr].endpoint_nr = endpoint_nr;
+        s->tx_fifo[endpoint_nr].current = 0;
+        s->tx_fifo[endpoint_nr].offset = 0;
     }
 
     dma_start.dma_flags = 0;
@@ -112,6 +106,8 @@ void litepcie_dma_stop(LitePCIeState *s, uint8_t endpoint_nr, uint8_t channel)
     struct litepcie_ioctl_dma_stop dma_stop;
     dma_stop.channel = channel;
     dma_stop.endpoint_nr = endpoint_nr;
+    if (channel&DMA_CHANNEL_RX)
+        litepcie_writel(s, 0xD044, 0);
     if (ioctl(s->litepcie_fd, LITEPCIE_IOCTL_DMA_STOP, &dma_stop) < 0) {
         perror("LITEPCIE_IOCTL_DMA_STOP");
     }
@@ -159,25 +155,21 @@ void litepcie_close(LitePCIeState *s)
 int litepcie_fifo_read(LitePCIeState *s, int ep, char* buf, const int count)
 {
     LitePCIeFIFO* fifo = &s->rx_fifo[ep];
-
-    if (ioctl(s->litepcie_fd, LITEPCIE_IOCTL_DMA_WAIT, &s->rx_dma_wait[ep]) >= 0)
+    const uint8_t back = litepcie_readl(s, CSR_PCIE_DMA_WRITER_TABLE_LOOP_STATUS_ADDR(ep));
+    if ((back+DMA_BUFFER_COUNT-fifo->current)%DMA_BUFFER_COUNT > DMA_BUFFER_COUNT*2/3) //assume overflow
     {
-        fifo->back = s->rx_dma_wait[ep].buf_num;
-        if ((fifo->back+DMA_BUFFER_COUNT-fifo->front)%DMA_BUFFER_COUNT > DMA_BUFFER_COUNT*2/3) //assume overflow
-        {
-            //printf("overflow\n");
-            fifo->offset = 0;
-            fifo->front = (fifo->back + DMA_BUFFER_COUNT*2/3)%DMA_BUFFER_COUNT;
-        }
+        //printf("overflow\n");
+        fifo->offset = 0;
+        fifo->current = (back + DMA_BUFFER_COUNT*2/3)%DMA_BUFFER_COUNT;
     }
 
     int bytes_read = 0;
     while (count > bytes_read)
     {
-        if (fifo->front == fifo->back)
+        if (fifo->current == back)
             return bytes_read;
 
-        const uint8_t *rx_buf = fifo->dma_buf + fifo->front*DMA_BUFFER_SIZE+fifo->offset;
+        const uint8_t *rx_buf = fifo->dma_buf + fifo->current*DMA_BUFFER_SIZE+fifo->offset;
         int n = fifo->buf_size-fifo->offset;
         if (n > count-bytes_read)
         {
@@ -186,7 +178,7 @@ int litepcie_fifo_read(LitePCIeState *s, int ep, char* buf, const int count)
             return count;
         }
         fifo->offset = 0;
-        fifo->front = (fifo->front+1)%DMA_BUFFER_COUNT;
+        fifo->current = (fifo->current+1)%DMA_BUFFER_COUNT;
         memcpy(buf+bytes_read, rx_buf, n);
         bytes_read += n;
     }
@@ -197,14 +189,13 @@ int litepcie_fifo_write(LitePCIeState *s, int ep, const char* buf, const int cou
 {
     LitePCIeFIFO* fifo = &s->tx_fifo[ep];
     int bytes_written = 0;
-    if (ioctl(s->litepcie_fd, LITEPCIE_IOCTL_DMA_WAIT, &s->tx_dma_wait[ep]) >= 0)
-        fifo->front = s->tx_dma_wait[ep].buf_num;
+    const uint16_t front = litepcie_readl(s, CSR_PCIE_DMA_READER_TABLE_LOOP_STATUS_ADDR(ep));
 
     while (count > bytes_written)
     {
-        if (uint16_t(fifo->front+DMA_BUFFER_COUNT) == fifo->back)
+        if (uint16_t(front+DMA_BUFFER_COUNT) == fifo->current)
             return bytes_written;
-        uint8_t *tx_buf = fifo->dma_buf + (fifo->back&0xFF)*DMA_BUFFER_SIZE+fifo->offset;
+        uint8_t *tx_buf = fifo->dma_buf + (fifo->current&0xFF)*DMA_BUFFER_SIZE+fifo->offset;
         int n = fifo->buf_size-fifo->offset;
         if (n > count-bytes_written)
         {
@@ -215,14 +206,10 @@ int litepcie_fifo_write(LitePCIeState *s, int ep, const char* buf, const int cou
         fifo->offset = 0;
 
         memcpy(tx_buf, buf+bytes_written, n);
-        struct litepcie_ioctl_reg_rw reg;
-        reg.adress = CSR_PCIE_DMA_READER_SCOUNTER_ADDR(ep);
-        reg.valWrite = ++fifo->back;;
-        if(ioctl(s->litepcie_fd, LITEPCIE_IOCTL_REG_WRITE, &reg) < 0){
-            printf("LITEPCIE_IOCTL_REG_WRITE Error\n");
-            return 0;
-        }
+        litepcie_writel(s, uint32_t CSR_PCIE_DMA_READER_SCOUNTER_ADDR(ep), ++fifo->current);
         bytes_written += n;
+        if (fifo->current%64 == 0)
+            printf("F %d, B %d\n", front, fifo->current);
     }
     return bytes_written;
 }

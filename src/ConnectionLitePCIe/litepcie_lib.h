@@ -14,21 +14,17 @@
 
 typedef struct
 {
-    uint16_t front;
-    uint16_t back;
-    int offset;
-    int buf_size;
+    uint16_t current;
+    uint16_t offset;
+    uint32_t buf_size;
     uint8_t* dma_buf;
 } LitePCIeFIFO;
 
 typedef struct {
     int litepcie_fd;
-    struct litepcie_ioctl_mmap_info mmap_info;
-    struct litepcie_ioctl_dma_wait tx_dma_wait[DMA_BUFFER_COUNT];
-    struct litepcie_ioctl_dma_wait rx_dma_wait[DMA_BUFFER_COUNT];
-    
     LitePCIeFIFO rx_fifo[DMA_ENDPOINT_COUNT];
     LitePCIeFIFO tx_fifo[DMA_ENDPOINT_COUNT];
+    struct litepcie_ioctl_mmap_info mmap_info;   
 } LitePCIeState;
 
 LitePCIeState *litepcie_open(const char *device_name);

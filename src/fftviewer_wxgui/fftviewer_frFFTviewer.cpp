@@ -375,6 +375,13 @@ void fftviewer_frFFTviewer::StreamingLoop(fftviewer_frFFTviewer* pthis, const un
     for (int i = 0; i < channelsCount; ++i)
         buffers[i] = new complex16_t[fftSize];
 
+    vector<complex16_t> tx_buffer;
+    tx_buffer.resize(fftSize);
+
+    for (int i = 0; i < fftSize; i++)
+    {
+        tx_buffer[i] = {i,i};
+    }
     vector<complex16_t> captureBuffer[cMaxChCount];
     uint32_t samplesToCapture[cMaxChCount];
     uint32_t samplesCaptured[cMaxChCount];
@@ -445,7 +452,7 @@ void fftviewer_frFFTviewer::StreamingLoop(fftviewer_frFFTviewer* pthis, const un
             {
                 meta.timestamp = ts[i];
                 meta.waitForTimestamp = syncTx;
-                LMS_SendStream(&pthis->txStreams[i], &buffers[i][0], fftSize, &meta, 1000);
+                LMS_SendStream(&pthis->txStreams[i], &buffers[i][0] /*tx_buffer.data()*/, fftSize, &meta, 1000);
             }
 
             if(pthis->captureSamples.load())
@@ -580,9 +587,10 @@ void fftviewer_frFFTviewer::StreamingLoop(fftviewer_frFFTviewer* pthis, const un
     pthis->mStreamRunning.store(false);
     for(int i=0; i<channelsCount; ++i)
     {
+        LMS_StopStream(&pthis->rxStreams[i]);
         if(runTx)
             LMS_StopStream(&pthis->txStreams[i]);
-        LMS_StopStream(&pthis->rxStreams[i]);
+
     }
     for(int i=0; i<channelsCount; ++i)
     {

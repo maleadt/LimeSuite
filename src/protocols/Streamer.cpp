@@ -743,7 +743,7 @@ void Streamer::TransmitPacketsLoop()
             totalBytesSent = 0;
             t1 = t2;
 #ifndef NDEBUG
-            lime::log(LOG_LEVEL_DEBUG, "Tx: %.3f MB/s\n", dataRate / 1000000.0);
+            lime::log(LOG_LEVEL_DEBUG, "Tx: %.3f MB/s", dataRate / 1000000.0);
 #endif
         }
     }
@@ -866,7 +866,7 @@ void Streamer::ReceivePacketsLoop()
             //total number of bytes sent per second
             double dataRate = 1000.0*totalBytesReceived / timePeriod;
 #ifndef NDEBUG
-            lime::log(LOG_LEVEL_DEBUG, "Rx: %.3f MB/s\n", dataRate / 1000000.0);
+            lime::log(LOG_LEVEL_DEBUG, "Rx: %.3f MB/s", dataRate / 1000000.0);
 #endif
             totalBytesReceived = 0;
             rxDataRate_Bps.store((uint32_t)dataRate, std::memory_order_relaxed);

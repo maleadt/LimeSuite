@@ -308,9 +308,9 @@ void FPGAcontrols_wxgui::OnbtnLoadOnetoneClick(wxCommandEvent& event)
     const int samplesPerPeriod = 64;
     vector<int16_t> isamples;
     vector<int16_t> qsamples;
-    isamples.resize(samplesPerPeriod);
-    qsamples.resize(samplesPerPeriod);
-    for (int i = 0; i < samplesPerPeriod; i++)
+    isamples.resize(1360);
+    qsamples.resize(1360);
+    for (int i = 0; i < 1360; i++)
     {
         const double PI  = 3.141592653589793238463;
         isamples[i] = 32767.0*cos(2.0*PI*i/samplesPerPeriod)+0.5;
