@@ -35,5 +35,6 @@ int litepcie_writel(LitePCIeState *s, uint32_t addr, uint32_t val);
 uint32_t litepcie_readl(LitePCIeState *s, uint32_t addr);
 int litepcie_fifo_read(LitePCIeState *s, int ep, char* buf, const int count);
 int litepcie_fifo_write(LitePCIeState *s, int ep, const char* buf, const int count);
+int litepcie_fifo_flush(LitePCIeState *s, int ep);
 
 #endif /* LITEPCIE_LIB_H */

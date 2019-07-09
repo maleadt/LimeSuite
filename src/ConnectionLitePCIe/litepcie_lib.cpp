@@ -206,12 +206,22 @@ int litepcie_fifo_write(LitePCIeState *s, int ep, const char* buf, const int cou
         fifo->offset = 0;
 
         memcpy(tx_buf, buf+bytes_written, n);
-        litepcie_writel(s, uint32_t CSR_PCIE_DMA_READER_SCOUNTER_ADDR(ep), ++fifo->current);
+        litepcie_writel(s, CSR_PCIE_DMA_READER_SCOUNTER_ADDR(ep), ++fifo->current);
         bytes_written += n;
-        if (fifo->current%64 == 0)
-            printf("F %d, B %d\n", front, fifo->current);
     }
     return bytes_written;
+}
+
+int litepcie_fifo_flush(LitePCIeState *s, int ep)
+{
+    LitePCIeFIFO* fifo = &s->tx_fifo[ep];
+    if (!fifo->offset)
+        return 0;
+    litepcie_writel(s, CSR_PCIE_DMA_READER_PACKET_NR_ADDR(ep), ++fifo->current);
+    litepcie_writel(s, CSR_PCIE_DMA_READER_NUMOFBYTES_ADDR(ep), fifo->offset/8*8);
+    litepcie_writel(s, CSR_PCIE_DMA_READER_SCOUNTER_ADDR(ep), fifo->current);
+    fifo->offset = 0;
+    return 1;
 }
 
 

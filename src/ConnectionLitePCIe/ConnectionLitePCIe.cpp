@@ -35,14 +35,7 @@ bool ConnectionLitePCIe::IsOpen()
 
 int ConnectionLitePCIe::Write(const unsigned char *buffer, const int length, int /*timeout_ms*/)
 {
-    uint32_t* ptr = (uint32_t*)buffer;
-    for (int cnt = 0; cnt < length; cnt +=4)
-    {
-        uint32_t value = *ptr++;
-        if (litepcie_writel(s, CSR_CNTRL_BASE+cnt, value)<0)
-            return cnt*4;
-    }
-    return length;
+    return write(s->litepcie_fd, buffer, length);
 }
 
 int ConnectionLitePCIe::Read(unsigned char *buffer, const int length, int timeout_ms)
@@ -51,6 +44,7 @@ int ConnectionLitePCIe::Read(unsigned char *buffer, const int length, int timeou
     auto t1 = chrono::high_resolution_clock::now();
     do
     {   //wait for status byte to change
+        read(s->litepcie_fd, &status, sizeof(status));
         status = litepcie_readl(s, CSR_CNTRL_BASE);
         if ((status&0xFF00) != 0)
             break;
@@ -60,11 +54,7 @@ int ConnectionLitePCIe::Read(unsigned char *buffer, const int length, int timeou
 
     if ((status&0xFF00)== 0)
         return 0;   //timeout
-    uint32_t* ptr = (uint32_t*)buffer;
-    *ptr = status;
-    for (int cnt = 4; cnt < length; cnt +=4)
-        *(++ptr) = litepcie_readl(s, CSR_CNTRL_BASE+cnt);
-    return length;
+    return read(s->litepcie_fd, buffer, length);
 }
 
 int ConnectionLitePCIe::GetBuffersCount() const
@@ -158,7 +148,7 @@ int ConnectionLitePCIe::SendData(const char *buffer, int length, int epIndex, in
         else
             break;
     }while (std::chrono::duration_cast<std::chrono::milliseconds>(chrono::high_resolution_clock::now() - t1).count() < timeout_ms);
-
+    litepcie_fifo_flush(s, epIndex);
     return totalBytesSent;
 }
 

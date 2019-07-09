@@ -260,8 +260,9 @@ int FPGAcontrols_wxgui::UploadFile(std::vector<int16_t> isamples, std::vector<in
     btnPlayWFM->Enable(false);
     btnStopWFM->Enable(false);
 
-    const uint8_t chCount = 2;
+    //const uint8_t chCount = 2;
     bool MIMO = chkMIMO->IsChecked();
+    const uint8_t chCount = LMS_GetNumChannels(lmsControl,LMS_CH_TX) > 2 ? 1+MIMO : 2;
 
     lime::complex16_t* src[chCount];
     for(int i=0; i<chCount; ++i)
@@ -284,7 +285,7 @@ int FPGAcontrols_wxgui::UploadFile(std::vector<int16_t> isamples, std::vector<in
         }
     }
 
-    int status = LMS_UploadWFM(lmsControl, (const void**)src, 2+cmbDevice->GetSelection()*2, isamples.size(), 1);
+    int status = LMS_UploadWFM(lmsControl, (const void**)src, chCount+cmbDevice->GetSelection()*2, isamples.size(), 1);
 
     progressBar->SetValue(progressBar->GetRange());
     lblProgressPercent->SetLabelText(_("100%"));
@@ -308,9 +309,9 @@ void FPGAcontrols_wxgui::OnbtnLoadOnetoneClick(wxCommandEvent& event)
     const int samplesPerPeriod = 64;
     vector<int16_t> isamples;
     vector<int16_t> qsamples;
-    isamples.resize(1360);
-    qsamples.resize(1360);
-    for (int i = 0; i < 1360; i++)
+    isamples.resize(samplesPerPeriod);
+    qsamples.resize(samplesPerPeriod);
+    for (int i = 0; i < samplesPerPeriod; i++)
     {
         const double PI  = 3.141592653589793238463;
         isamples[i] = 32767.0*cos(2.0*PI*i/samplesPerPeriod)+0.5;
