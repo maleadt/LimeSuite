@@ -22,7 +22,6 @@ typedef struct
 
 typedef struct {
     int litepcie_fd;
-    LitePCIeFIFO rx_fifo[DMA_ENDPOINT_COUNT];
     LitePCIeFIFO tx_fifo[DMA_ENDPOINT_COUNT];
     struct litepcie_ioctl_mmap_info mmap_info;   
 } LitePCIeState;
@@ -33,7 +32,6 @@ void litepcie_dma_start(LitePCIeState *s, int buf_size, uint8_t endpoint_nr, uin
 void litepcie_dma_stop(LitePCIeState *s, uint8_t endpoint_nr, uint8_t channel);
 int litepcie_writel(LitePCIeState *s, uint32_t addr, uint32_t val);
 uint32_t litepcie_readl(LitePCIeState *s, uint32_t addr);
-int litepcie_fifo_read(LitePCIeState *s, int ep, char* buf, const int count);
 int litepcie_fifo_write(LitePCIeState *s, int ep, const char* buf, const int count);
 int litepcie_fifo_flush(LitePCIeState *s, int ep);
 

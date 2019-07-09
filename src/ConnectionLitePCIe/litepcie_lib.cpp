@@ -1,6 +1,5 @@
 /*
  * LitePCIe library
- *
  */
 #include <stdio.h>
 #include <string.h>
@@ -45,21 +44,10 @@ LitePCIeState *litepcie_open(const char *device_name)
             fprintf(stderr, "mmapTX_%d %s\n",i,strerror(errno));
             goto fail;
         }
-
-        s->rx_fifo[i].dma_buf = (uint8_t*)mmap(NULL, s->mmap_info.dma_rx_buf_size *
-                            s->mmap_info.dma_rx_buf_count,
-                            PROT_READ | PROT_WRITE, MAP_SHARED, s->litepcie_fd,
-                            s->mmap_info.dma_rx_buf_offset[i]);
-        if (s->rx_fifo[i].dma_buf == MAP_FAILED) {
-            fprintf(stderr, "mmapRX_%d %s\n",i,strerror(errno));
-            goto fail;
-        }
     }
 
     for(int i = 0; i < DMA_ENDPOINT_COUNT; i++){
-        s->rx_fifo[i].current = 0;
         s->tx_fifo[i].current = 0;
-        s->rx_fifo[i].offset = 0;
         s->tx_fifo[i].offset = 0;
     }
     printf("Mapping was succesful!\n");
@@ -75,9 +63,6 @@ void litepcie_dma_start(LitePCIeState *s, int buf_size, uint8_t endpoint_nr, uin
 
     if (channel&DMA_CHANNEL_RX)
     {
-        s->rx_fifo[endpoint_nr].buf_size = buf_size;
-        s->rx_fifo[endpoint_nr].current = 0;
-        s->rx_fifo[endpoint_nr].offset = 0;
         litepcie_writel(s, 0xD044, 1);
     }
     if (channel&DMA_CHANNEL_TX)
@@ -87,11 +72,7 @@ void litepcie_dma_start(LitePCIeState *s, int buf_size, uint8_t endpoint_nr, uin
         s->tx_fifo[endpoint_nr].offset = 0;
     }
 
-    dma_start.dma_flags = 0;
-    dma_start.tx_buf_size = s->tx_fifo[endpoint_nr].buf_size;
-    dma_start.tx_buf_count = DMA_BUFFER_COUNT;
-    dma_start.rx_buf_size = s->rx_fifo[endpoint_nr].buf_size;
-    dma_start.rx_buf_count = DMA_BUFFER_COUNT;
+    dma_start.buf_size = buf_size;
     dma_start.endpoint_nr = endpoint_nr;
     dma_start.channel = channel;
 
@@ -134,16 +115,10 @@ uint32_t litepcie_readl(LitePCIeState *s, uint32_t addr)
 
 void litepcie_close(LitePCIeState *s)
 {
-    //TODO unmap it Just wrap rx later
     for(int i = 0; i < DMA_ENDPOINT_COUNT; i++){
         if (s->tx_fifo[i].dma_buf) {
             munmap(s->tx_fifo[i].dma_buf , s->mmap_info.dma_tx_buf_size *
                 s->mmap_info.dma_tx_buf_count);
-        }
-
-        if (s->rx_fifo[i].dma_buf) {
-            munmap(s->rx_fifo[i].dma_buf, s->mmap_info.dma_rx_buf_size *
-                s->mmap_info.dma_rx_buf_count);
         }
     }
     if (s->litepcie_fd >= 0)
@@ -151,39 +126,6 @@ void litepcie_close(LitePCIeState *s)
     delete s;
 }
 
-
-int litepcie_fifo_read(LitePCIeState *s, int ep, char* buf, const int count)
-{
-    LitePCIeFIFO* fifo = &s->rx_fifo[ep];
-    const uint8_t back = litepcie_readl(s, CSR_PCIE_DMA_WRITER_TABLE_LOOP_STATUS_ADDR(ep));
-    if ((back+DMA_BUFFER_COUNT-fifo->current)%DMA_BUFFER_COUNT > DMA_BUFFER_COUNT*2/3) //assume overflow
-    {
-        //printf("overflow\n");
-        fifo->offset = 0;
-        fifo->current = (back + DMA_BUFFER_COUNT*2/3)%DMA_BUFFER_COUNT;
-    }
-
-    int bytes_read = 0;
-    while (count > bytes_read)
-    {
-        if (fifo->current == back)
-            return bytes_read;
-
-        const uint8_t *rx_buf = fifo->dma_buf + fifo->current*DMA_BUFFER_SIZE+fifo->offset;
-        int n = fifo->buf_size-fifo->offset;
-        if (n > count-bytes_read)
-        {
-            fifo->offset += count-bytes_read;
-            memcpy(buf+bytes_read, rx_buf, count-bytes_read);
-            return count;
-        }
-        fifo->offset = 0;
-        fifo->current = (fifo->current+1)%DMA_BUFFER_COUNT;
-        memcpy(buf+bytes_read, rx_buf, n);
-        bytes_read += n;
-    }
-    return bytes_read;
-}
 
 int litepcie_fifo_write(LitePCIeState *s, int ep, const char* buf, const int count)
 {

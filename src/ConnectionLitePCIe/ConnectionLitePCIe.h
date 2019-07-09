@@ -41,6 +41,7 @@ protected:
     
 private:
     static const int MAX_EP_CNT = 3;
+    int ep_fd[MAX_EP_CNT];
     std::atomic<bool> rxDMAstarted[MAX_EP_CNT];
     std::atomic<bool> txDMAstarted[MAX_EP_CNT];
     LitePCIeState *s;

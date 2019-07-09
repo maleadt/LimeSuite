@@ -9,6 +9,8 @@ using namespace std;
 
 using namespace lime;
 
+static const char* ep_names[] = { "/dev/litepcie1",  "/dev/litepcie2",  "/dev/litepcie3"};
+
 ConnectionLitePCIe::ConnectionLitePCIe(const unsigned) :
     isConnected(true)
 {
@@ -19,7 +21,10 @@ ConnectionLitePCIe::ConnectionLitePCIe(const unsigned) :
         lime::error("Failed to open Lite PCIe");
     }
     for (int i = 0; i < MAX_EP_CNT; i++)
+    {
+        ep_fd[i] = open(ep_names[i], O_RDWR);
         rxDMAstarted[i] = txDMAstarted[i] = false;
+    }
 }
 
 ConnectionLitePCIe::~ConnectionLitePCIe()
@@ -96,7 +101,7 @@ int ConnectionLitePCIe::ReceiveData(char *buffer, int length, int epIndex, int t
 
     do
     {
-        int bytesReceived = litepcie_fifo_read(s, epIndex, buffer+totalBytesReaded, length-totalBytesReaded);
+        int bytesReceived = read(ep_fd[epIndex], buffer+totalBytesReaded, length-totalBytesReaded);
         if (bytesReceived == 0)
         {
             std::this_thread::sleep_for(std::chrono::microseconds(100));
