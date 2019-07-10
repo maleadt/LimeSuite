@@ -5,14 +5,12 @@
 #include <mutex>
 #include <atomic>
 
-#define LITEPCIE_FILENAME "/dev/litepcie0"
-
 namespace lime{
 
 class ConnectionLitePCIe : public LMS64CProtocol
 {
 public:
-    ConnectionLitePCIe(const unsigned index);
+    ConnectionLitePCIe(const char* control_ep);
     ~ConnectionLitePCIe(void);
 
     bool IsOpen();
@@ -23,7 +21,6 @@ public:
 protected:
     int GetBuffersCount() const override;
     int CheckStreamSize(int size) const override;
-    int ResetStreamBuffers() override;
 
     int ReceiveData(char* buffer, int length, int epIndex, int timeout = 100) override;
     int SendData(const char* buffer, int length, int epIndex, int timeout = 100) override;
@@ -41,7 +38,8 @@ protected:
 private:
     static const int MAX_EP_CNT = 3;
     int control_fd;
-    int ep_fd[MAX_EP_CNT];
+    int rd_ep_fd[MAX_EP_CNT];
+    int wr_ep_fd[MAX_EP_CNT];
     eConnectionType GetType(void) {return PCIE_PORT;}
 
     bool isConnected;

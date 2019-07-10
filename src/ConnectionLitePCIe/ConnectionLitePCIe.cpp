@@ -10,7 +10,8 @@ using namespace std;
 
 using namespace lime;
 
-static const char* ep_names[] = { "/dev/litepcie1",  "/dev/litepcie2",  "/dev/litepcie3"};
+static const char* rd_ep_names[] = { "/dev/litepcie_read0",  "/dev/litepcie_read1",  "/dev/litepcie_read2"};
+static const char* wr_ep_names[] = { "/dev/litepcie_write0",  "/dev/litepcie_write1",  "/dev/litepcie_write2"};
 
 
 #define DMA_CHANNEL_TX 1
@@ -24,10 +25,10 @@ struct litepcie_ioctl_dma_stop {
 #define LITEPCIE_IOCTL 'S'
 #define LITEPCIE_IOCTL_DMA_STOP         _IOW(LITEPCIE_IOCTL, 3, struct litepcie_ioctl_dma_stop)
 
-ConnectionLitePCIe::ConnectionLitePCIe(const unsigned) :
+ConnectionLitePCIe::ConnectionLitePCIe(const char* control_ep) :
     isConnected(true)
 {
-    control_fd = open(LITEPCIE_FILENAME, O_RDWR);
+    control_fd = open(control_ep, O_RDWR);
     if (control_fd<0)
     {
         isConnected = false;
@@ -35,7 +36,7 @@ ConnectionLitePCIe::ConnectionLitePCIe(const unsigned) :
         return;
     }
     for (int i = 0; i < MAX_EP_CNT; i++)
-        ep_fd[i] = open(ep_names[i], O_RDWR);
+        rd_ep_fd[i] = wr_ep_fd[i] = -1;
 }
 
 ConnectionLitePCIe::~ConnectionLitePCIe()
@@ -82,30 +83,24 @@ int ConnectionLitePCIe::CheckStreamSize(int size) const
     return size;
 }
 
-int ConnectionLitePCIe::ResetStreamBuffers()
-{
-    for (int i = 0; i < MAX_EP_CNT; i++)
-        if (ep_fd[i] >= 0)
-        {
-            struct litepcie_ioctl_dma_stop dma_stop;
-            dma_stop.channel = DMA_CHANNEL_TX | DMA_CHANNEL_RX;
-            dma_stop.endpoint_nr = i;
-            if (ioctl(ep_fd[i], LITEPCIE_IOCTL_DMA_STOP, &dma_stop) < 0) {
-                lime::error("LITEPCIE_IOCTL_DMA_STOP failed");
-            }
-        }
-    return 0;
-}
-
 int ConnectionLitePCIe::ReceiveData(char *buffer, int length, int epIndex, int timeout_ms)
 {
+    if (rd_ep_fd[epIndex] == -1)
+    {
+       if ((rd_ep_fd[epIndex] = open(rd_ep_names[epIndex], O_RDONLY | O_NOCTTY | O_NONBLOCK))==-1)
+       {
+            lime::error("open read endpoint failed");
+            return 0;
+       }
+    }
+
     int totalBytesReaded = 0;
     int bytesToRead = length;
     auto t1 = chrono::high_resolution_clock::now();
 
     do
     {
-        int bytesReceived = read(ep_fd[epIndex], buffer+totalBytesReaded, length-totalBytesReaded);
+        int bytesReceived = read(rd_ep_fd[epIndex], buffer+totalBytesReaded, length-totalBytesReaded);
         if (bytesReceived == 0)
         {
             std::this_thread::sleep_for(std::chrono::microseconds(100));
@@ -123,25 +118,36 @@ int ConnectionLitePCIe::ReceiveData(char *buffer, int length, int epIndex, int t
 
 void ConnectionLitePCIe::AbortReading(int epIndex)
 {
-    if (ep_fd[epIndex] >= 0)
+    if (rd_ep_fd[epIndex] >= 0)
     {
         struct litepcie_ioctl_dma_stop dma_stop;
         dma_stop.channel = DMA_CHANNEL_RX;
         dma_stop.endpoint_nr = epIndex;
-        if (ioctl(ep_fd[epIndex], LITEPCIE_IOCTL_DMA_STOP, &dma_stop) < 0) {
+        if (ioctl(rd_ep_fd[epIndex], LITEPCIE_IOCTL_DMA_STOP, &dma_stop) < 0) {
             lime::error("LITEPCIE_IOCTL_DMA_STOP failed");
         }
+        close(rd_ep_fd[epIndex]);
+        rd_ep_fd[epIndex] = -1;
     }
 }
 
 int ConnectionLitePCIe::SendData(const char *buffer, int length, int epIndex, int timeout_ms)
 {
+    if (wr_ep_fd[epIndex] == -1)
+    {
+       if ((wr_ep_fd[epIndex] = open(wr_ep_names[epIndex], O_WRONLY | O_NOCTTY | O_NONBLOCK))==-1)
+       {
+            lime::error("open write endpoint failed");
+            return 0;
+       }
+    }
+
     int totalBytesSent = 0;
     int bytesToSend = length;
     auto t1 = chrono::high_resolution_clock::now();
     do
     {
-        int bytesSent = write(ep_fd[epIndex], buffer+totalBytesSent, length-totalBytesSent);
+        int bytesSent = write(wr_ep_fd[epIndex], buffer+totalBytesSent, length-totalBytesSent);
         if (bytesSent == 0)
         {
             std::this_thread::sleep_for(std::chrono::microseconds(500));
@@ -158,14 +164,16 @@ int ConnectionLitePCIe::SendData(const char *buffer, int length, int epIndex, in
 
 void ConnectionLitePCIe::AbortSending(int epIndex)
 {
-    if (ep_fd[epIndex] >= 0)
+    if (wr_ep_fd[epIndex] >= 0)
     {
         struct litepcie_ioctl_dma_stop dma_stop;
         dma_stop.channel = DMA_CHANNEL_TX;
         dma_stop.endpoint_nr = epIndex;
-        if (ioctl(ep_fd[epIndex], LITEPCIE_IOCTL_DMA_STOP, &dma_stop) < 0) {
+        if (ioctl(wr_ep_fd[epIndex], LITEPCIE_IOCTL_DMA_STOP, &dma_stop) < 0) {
             lime::error("LITEPCIE_IOCTL_DMA_STOP failed");
         }
+        close(wr_ep_fd[epIndex]);
+        wr_ep_fd[epIndex] = -1;
     }
 }
 

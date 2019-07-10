@@ -10,6 +10,8 @@
 using namespace lime;
 #include <fstream>
 
+static const char*  control_name = "/dev/litepcie_control";
+
 //! make a static-initialized entry in the registry
 void __loadConnectionLitePCIeEntry(void) //TODO fixme replace with LoadLibrary/dlopen
 {
@@ -31,7 +33,7 @@ std::vector<ConnectionHandle> ConnectionLitePCIeEntry::enumerate(const Connectio
     ConnectionHandle handle;
     handle.media = "PCI-E";
 
-    if(access(LITEPCIE_FILENAME, F_OK ) != -1 )
+    if(access(control_name, F_OK ) != -1 )
     {
         handle.name = "LitePCIe";
         handle.index = 0;
@@ -42,5 +44,5 @@ std::vector<ConnectionHandle> ConnectionLitePCIeEntry::enumerate(const Connectio
 
 IConnection *ConnectionLitePCIeEntry::make(const ConnectionHandle &handle)
 {
-    return new ConnectionLitePCIe(handle.index);
+    return new ConnectionLitePCIe(control_name);
 }
