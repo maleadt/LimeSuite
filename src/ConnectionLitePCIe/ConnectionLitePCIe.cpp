@@ -1,10 +1,7 @@
 #include "ConnectionLitePCIe.h"
 #include <unistd.h>
 #include <fcntl.h>
-#include <atomic>
 #include "Logger.h"
-#include "dataTypes.h"
-#include <sys/ioctl.h>
 
 using namespace std;
 
@@ -12,18 +9,6 @@ using namespace lime;
 
 static const char* rd_ep_names[] = { "/dev/litepcie_read0",  "/dev/litepcie_read1",  "/dev/litepcie_read2"};
 static const char* wr_ep_names[] = { "/dev/litepcie_write0",  "/dev/litepcie_write1",  "/dev/litepcie_write2"};
-
-
-#define DMA_CHANNEL_TX 1
-#define DMA_CHANNEL_RX 2
-
-struct litepcie_ioctl_dma_stop {
-    uint32_t channel;
-    uint32_t endpoint_nr;
-};
-
-#define LITEPCIE_IOCTL 'S'
-#define LITEPCIE_IOCTL_DMA_STOP         _IOW(LITEPCIE_IOCTL, 3, struct litepcie_ioctl_dma_stop)
 
 ConnectionLitePCIe::ConnectionLitePCIe(const char* control_ep) :
     isConnected(true)
@@ -120,12 +105,6 @@ void ConnectionLitePCIe::AbortReading(int epIndex)
 {
     if (rd_ep_fd[epIndex] >= 0)
     {
-        struct litepcie_ioctl_dma_stop dma_stop;
-        dma_stop.channel = DMA_CHANNEL_RX;
-        dma_stop.endpoint_nr = epIndex;
-        if (ioctl(rd_ep_fd[epIndex], LITEPCIE_IOCTL_DMA_STOP, &dma_stop) < 0) {
-            lime::error("LITEPCIE_IOCTL_DMA_STOP failed");
-        }
         close(rd_ep_fd[epIndex]);
         rd_ep_fd[epIndex] = -1;
     }
@@ -166,12 +145,6 @@ void ConnectionLitePCIe::AbortSending(int epIndex)
 {
     if (wr_ep_fd[epIndex] >= 0)
     {
-        struct litepcie_ioctl_dma_stop dma_stop;
-        dma_stop.channel = DMA_CHANNEL_TX;
-        dma_stop.endpoint_nr = epIndex;
-        if (ioctl(wr_ep_fd[epIndex], LITEPCIE_IOCTL_DMA_STOP, &dma_stop) < 0) {
-            lime::error("LITEPCIE_IOCTL_DMA_STOP failed");
-        }
         close(wr_ep_fd[epIndex]);
         wr_ep_fd[epIndex] = -1;
     }
