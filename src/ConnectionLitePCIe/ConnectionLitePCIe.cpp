@@ -89,12 +89,8 @@ int ConnectionLitePCIe::ResetStreamBuffers()
 int ConnectionLitePCIe::ReceiveData(char *buffer, int length, int epIndex, int timeout_ms)
 {
     if (!rxDMAstarted[epIndex].load(std::memory_order_relaxed))
-    {
-        unsigned size = length/sizeof(FPGA_DataPacket);
-        size = size > 16 ? 16 : size ? size : 1;
-        litepcie_dma_start(control_fd, size*sizeof(FPGA_DataPacket), epIndex, DMA_CHANNEL_RX);
         rxDMAstarted[epIndex].store(true, std::memory_order_relaxed);
-    }
+
     int totalBytesReaded = 0;
     int bytesToRead = length;
     auto t1 = chrono::high_resolution_clock::now();
@@ -129,12 +125,7 @@ void ConnectionLitePCIe::AbortReading(int epIndex)
 int ConnectionLitePCIe::SendData(const char *buffer, int length, int epIndex, int timeout_ms)
 {
     if (!txDMAstarted[epIndex].load(std::memory_order_relaxed))
-    {
-        unsigned size = length/sizeof(FPGA_DataPacket);
-        size = size > 16 ? 16 : size ? size : 1;
-        litepcie_dma_start(control_fd, size*sizeof(FPGA_DataPacket), epIndex, DMA_CHANNEL_TX);
         txDMAstarted[epIndex].store(true, std::memory_order_relaxed);
-    }
 
     int totalBytesSent = 0;
     int bytesToSend = length;
