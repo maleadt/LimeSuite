@@ -61,10 +61,6 @@ void litepcie_dma_start(LitePCIeState *s, int buf_size, uint8_t endpoint_nr, uin
 {
     struct litepcie_ioctl_dma_start dma_start;
 
-    if (channel&DMA_CHANNEL_RX)
-    {
-        litepcie_writel(s, 0xD044, 1);
-    }
     if (channel&DMA_CHANNEL_TX)
     {
         s->tx_fifo[endpoint_nr].buf_size = buf_size;
@@ -87,8 +83,6 @@ void litepcie_dma_stop(LitePCIeState *s, uint8_t endpoint_nr, uint8_t channel)
     struct litepcie_ioctl_dma_stop dma_stop;
     dma_stop.channel = channel;
     dma_stop.endpoint_nr = endpoint_nr;
-    if (channel&DMA_CHANNEL_RX)
-        litepcie_writel(s, 0xD044, 0);
     if (ioctl(s->litepcie_fd, LITEPCIE_IOCTL_DMA_STOP, &dma_stop) < 0) {
         perror("LITEPCIE_IOCTL_DMA_STOP");
     }

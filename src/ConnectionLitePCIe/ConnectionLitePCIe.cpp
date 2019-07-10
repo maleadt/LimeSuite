@@ -141,7 +141,8 @@ int ConnectionLitePCIe::SendData(const char *buffer, int length, int epIndex, in
     auto t1 = chrono::high_resolution_clock::now();
     do
     {
-        int bytesSent = litepcie_fifo_write(s, epIndex, buffer+totalBytesSent, length-totalBytesSent);
+        int bytesSent = write(ep_fd[epIndex], buffer+totalBytesSent, length-totalBytesSent);
+       // int bytesSent = litepcie_fifo_write(s, epIndex, buffer+totalBytesSent, length-totalBytesSent);
         if (bytesSent == 0)
         {
             std::this_thread::sleep_for(std::chrono::microseconds(500));
