@@ -14,11 +14,12 @@ static const char* ep_names[] = { "/dev/litepcie1",  "/dev/litepcie2",  "/dev/li
 ConnectionLitePCIe::ConnectionLitePCIe(const unsigned) :
     isConnected(true)
 {
-    s = litepcie_open(LITEPCIE_FILENAME);
-    if (!s)
+    control_fd = open(LITEPCIE_FILENAME, O_RDWR);
+    if (control_fd<0)
     {
         isConnected = false;
         lime::error("Failed to open Lite PCIe");
+        return;
     }
     for (int i = 0; i < MAX_EP_CNT; i++)
     {
@@ -29,8 +30,8 @@ ConnectionLitePCIe::ConnectionLitePCIe(const unsigned) :
 
 ConnectionLitePCIe::~ConnectionLitePCIe()
 {
-    if (s)
-        litepcie_close(s);
+    if (control_fd >=0)
+        close(control_fd);
 }
 
 bool ConnectionLitePCIe::IsOpen()
@@ -40,7 +41,7 @@ bool ConnectionLitePCIe::IsOpen()
 
 int ConnectionLitePCIe::Write(const unsigned char *buffer, const int length, int /*timeout_ms*/)
 {
-    return write(s->litepcie_fd, buffer, length);
+    return write(control_fd, buffer, length);
 }
 
 int ConnectionLitePCIe::Read(unsigned char *buffer, const int length, int timeout_ms)
@@ -49,8 +50,7 @@ int ConnectionLitePCIe::Read(unsigned char *buffer, const int length, int timeou
     auto t1 = chrono::high_resolution_clock::now();
     do
     {   //wait for status byte to change
-        read(s->litepcie_fd, &status, sizeof(status));
-        status = litepcie_readl(s, CSR_CNTRL_BASE);
+        read(control_fd, &status, sizeof(status));
         if ((status&0xFF00) != 0)
             break;
         std::this_thread::sleep_for(std::chrono::microseconds(250));
@@ -59,7 +59,7 @@ int ConnectionLitePCIe::Read(unsigned char *buffer, const int length, int timeou
 
     if ((status&0xFF00)== 0)
         return 0;   //timeout
-    return read(s->litepcie_fd, buffer, length);
+    return read(control_fd, buffer, length);
 }
 
 int ConnectionLitePCIe::GetBuffersCount() const
@@ -77,9 +77,9 @@ int ConnectionLitePCIe::ResetStreamBuffers()
     for (int i = 0; i < MAX_EP_CNT; i++)
     {
         if (txDMAstarted[i].load(std::memory_order_relaxed))
-            litepcie_dma_stop(s, i, DMA_CHANNEL_TX);
+            litepcie_dma_stop(control_fd, i, DMA_CHANNEL_TX);
         if (rxDMAstarted[i].load(std::memory_order_relaxed))
-            litepcie_dma_stop(s, i, DMA_CHANNEL_RX);
+            litepcie_dma_stop(control_fd, i, DMA_CHANNEL_RX);
         rxDMAstarted[i].store(false, std::memory_order_relaxed);
         txDMAstarted[i].store(false, std::memory_order_relaxed);
     }
@@ -92,7 +92,7 @@ int ConnectionLitePCIe::ReceiveData(char *buffer, int length, int epIndex, int t
     {
         unsigned size = length/sizeof(FPGA_DataPacket);
         size = size > 16 ? 16 : size ? size : 1;
-        litepcie_dma_start(s, size*sizeof(FPGA_DataPacket), epIndex, DMA_CHANNEL_RX);
+        litepcie_dma_start(control_fd, size*sizeof(FPGA_DataPacket), epIndex, DMA_CHANNEL_RX);
         rxDMAstarted[epIndex].store(true, std::memory_order_relaxed);
     }
     int totalBytesReaded = 0;
@@ -122,7 +122,7 @@ void ConnectionLitePCIe::AbortReading(int epIndex)
     if (rxDMAstarted[epIndex].load(std::memory_order_relaxed))
     {
         rxDMAstarted[epIndex].store(false, std::memory_order_relaxed);
-        litepcie_dma_stop(s, epIndex, DMA_CHANNEL_RX);
+        litepcie_dma_stop(control_fd, epIndex, DMA_CHANNEL_RX);
     }
 }
 
@@ -132,7 +132,7 @@ int ConnectionLitePCIe::SendData(const char *buffer, int length, int epIndex, in
     {
         unsigned size = length/sizeof(FPGA_DataPacket);
         size = size > 16 ? 16 : size ? size : 1;
-        litepcie_dma_start(s, size*sizeof(FPGA_DataPacket), epIndex, DMA_CHANNEL_TX);
+        litepcie_dma_start(control_fd, size*sizeof(FPGA_DataPacket), epIndex, DMA_CHANNEL_TX);
         txDMAstarted[epIndex].store(true, std::memory_order_relaxed);
     }
 
@@ -142,7 +142,6 @@ int ConnectionLitePCIe::SendData(const char *buffer, int length, int epIndex, in
     do
     {
         int bytesSent = write(ep_fd[epIndex], buffer+totalBytesSent, length-totalBytesSent);
-       // int bytesSent = litepcie_fifo_write(s, epIndex, buffer+totalBytesSent, length-totalBytesSent);
         if (bytesSent == 0)
         {
             std::this_thread::sleep_for(std::chrono::microseconds(500));
@@ -154,7 +153,6 @@ int ConnectionLitePCIe::SendData(const char *buffer, int length, int epIndex, in
         else
             break;
     }while (std::chrono::duration_cast<std::chrono::milliseconds>(chrono::high_resolution_clock::now() - t1).count() < timeout_ms);
-    litepcie_fifo_flush(s, epIndex);
     return totalBytesSent;
 }
 
@@ -163,7 +161,7 @@ void ConnectionLitePCIe::AbortSending(int epIndex)
     if (txDMAstarted[epIndex].load(std::memory_order_relaxed))
     {
         txDMAstarted[epIndex].store(false, std::memory_order_relaxed);
-        litepcie_dma_stop(s, epIndex, DMA_CHANNEL_TX);
+        litepcie_dma_stop(control_fd, epIndex, DMA_CHANNEL_TX);
     }
 }
 
