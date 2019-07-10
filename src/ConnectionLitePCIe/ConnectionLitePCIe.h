@@ -4,7 +4,8 @@
 #include <string>
 #include <mutex>
 #include <atomic>
-#include "litepcie_lib.h"
+
+#define LITEPCIE_FILENAME "/dev/litepcie0"
 
 namespace lime{
 
@@ -41,8 +42,6 @@ private:
     static const int MAX_EP_CNT = 3;
     int control_fd;
     int ep_fd[MAX_EP_CNT];
-    std::atomic<bool> rxDMAstarted[MAX_EP_CNT];
-    std::atomic<bool> txDMAstarted[MAX_EP_CNT];
     eConnectionType GetType(void) {return PCIE_PORT;}
 
     bool isConnected;

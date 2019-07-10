@@ -6,7 +6,6 @@ set(THIS_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/ConnectionLitePCIe)
 set(CONNECTION_LITE_PCIE_SOURCES
     ${THIS_SOURCE_DIR}/ConnectionLitePCIeEntry.cpp
     ${THIS_SOURCE_DIR}/ConnectionLitePCIe.cpp
-    ${THIS_SOURCE_DIR}/litepcie_lib.cpp
 )
 
 ########################################################################

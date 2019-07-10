@@ -4,12 +4,25 @@
 #include <atomic>
 #include "Logger.h"
 #include "dataTypes.h"
+#include <sys/ioctl.h>
 
 using namespace std;
 
 using namespace lime;
 
 static const char* ep_names[] = { "/dev/litepcie1",  "/dev/litepcie2",  "/dev/litepcie3"};
+
+
+#define DMA_CHANNEL_TX 1
+#define DMA_CHANNEL_RX 2
+
+struct litepcie_ioctl_dma_stop {
+    uint32_t channel;
+    uint32_t endpoint_nr;
+};
+
+#define LITEPCIE_IOCTL 'S'
+#define LITEPCIE_IOCTL_DMA_STOP         _IOW(LITEPCIE_IOCTL, 3, struct litepcie_ioctl_dma_stop)
 
 ConnectionLitePCIe::ConnectionLitePCIe(const unsigned) :
     isConnected(true)
@@ -22,10 +35,7 @@ ConnectionLitePCIe::ConnectionLitePCIe(const unsigned) :
         return;
     }
     for (int i = 0; i < MAX_EP_CNT; i++)
-    {
         ep_fd[i] = open(ep_names[i], O_RDWR);
-        rxDMAstarted[i] = txDMAstarted[i] = false;
-    }
 }
 
 ConnectionLitePCIe::~ConnectionLitePCIe()
@@ -75,22 +85,20 @@ int ConnectionLitePCIe::CheckStreamSize(int size) const
 int ConnectionLitePCIe::ResetStreamBuffers()
 {
     for (int i = 0; i < MAX_EP_CNT; i++)
-    {
-        if (txDMAstarted[i].load(std::memory_order_relaxed))
-            litepcie_dma_stop(control_fd, i, DMA_CHANNEL_TX);
-        if (rxDMAstarted[i].load(std::memory_order_relaxed))
-            litepcie_dma_stop(control_fd, i, DMA_CHANNEL_RX);
-        rxDMAstarted[i].store(false, std::memory_order_relaxed);
-        txDMAstarted[i].store(false, std::memory_order_relaxed);
-    }
+        if (ep_fd[i] >= 0)
+        {
+            struct litepcie_ioctl_dma_stop dma_stop;
+            dma_stop.channel = DMA_CHANNEL_TX | DMA_CHANNEL_RX;
+            dma_stop.endpoint_nr = i;
+            if (ioctl(ep_fd[i], LITEPCIE_IOCTL_DMA_STOP, &dma_stop) < 0) {
+                lime::error("LITEPCIE_IOCTL_DMA_STOP failed");
+            }
+        }
     return 0;
 }
 
 int ConnectionLitePCIe::ReceiveData(char *buffer, int length, int epIndex, int timeout_ms)
 {
-    if (!rxDMAstarted[epIndex].load(std::memory_order_relaxed))
-        rxDMAstarted[epIndex].store(true, std::memory_order_relaxed);
-
     int totalBytesReaded = 0;
     int bytesToRead = length;
     auto t1 = chrono::high_resolution_clock::now();
@@ -115,18 +123,19 @@ int ConnectionLitePCIe::ReceiveData(char *buffer, int length, int epIndex, int t
 
 void ConnectionLitePCIe::AbortReading(int epIndex)
 {
-    if (rxDMAstarted[epIndex].load(std::memory_order_relaxed))
+    if (ep_fd[epIndex] >= 0)
     {
-        rxDMAstarted[epIndex].store(false, std::memory_order_relaxed);
-        litepcie_dma_stop(control_fd, epIndex, DMA_CHANNEL_RX);
+        struct litepcie_ioctl_dma_stop dma_stop;
+        dma_stop.channel = DMA_CHANNEL_RX;
+        dma_stop.endpoint_nr = epIndex;
+        if (ioctl(ep_fd[epIndex], LITEPCIE_IOCTL_DMA_STOP, &dma_stop) < 0) {
+            lime::error("LITEPCIE_IOCTL_DMA_STOP failed");
+        }
     }
 }
 
 int ConnectionLitePCIe::SendData(const char *buffer, int length, int epIndex, int timeout_ms)
 {
-    if (!txDMAstarted[epIndex].load(std::memory_order_relaxed))
-        txDMAstarted[epIndex].store(true, std::memory_order_relaxed);
-
     int totalBytesSent = 0;
     int bytesToSend = length;
     auto t1 = chrono::high_resolution_clock::now();
@@ -149,10 +158,14 @@ int ConnectionLitePCIe::SendData(const char *buffer, int length, int epIndex, in
 
 void ConnectionLitePCIe::AbortSending(int epIndex)
 {
-    if (txDMAstarted[epIndex].load(std::memory_order_relaxed))
+    if (ep_fd[epIndex] >= 0)
     {
-        txDMAstarted[epIndex].store(false, std::memory_order_relaxed);
-        litepcie_dma_stop(control_fd, epIndex, DMA_CHANNEL_TX);
+        struct litepcie_ioctl_dma_stop dma_stop;
+        dma_stop.channel = DMA_CHANNEL_TX;
+        dma_stop.endpoint_nr = epIndex;
+        if (ioctl(ep_fd[epIndex], LITEPCIE_IOCTL_DMA_STOP, &dma_stop) < 0) {
+            lime::error("LITEPCIE_IOCTL_DMA_STOP failed");
+        }
     }
 }
 
