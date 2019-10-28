@@ -420,6 +420,7 @@ void callback_libusbtransfer(libusb_transfer *trans)
         lime::error("USB TRANSFER ERROR");
         context->bytesXfered = trans->actual_length;
         context->done.store(true);
+        std::terminate();
         break;
     case LIBUSB_TRANSFER_TIMED_OUT:
         context->bytesXfered = trans->actual_length;
