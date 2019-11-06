@@ -43,6 +43,7 @@ int ConnectionLitePCIe::Write(const unsigned char *buffer, const int length, int
 int ConnectionLitePCIe::Read(unsigned char *buffer, const int length, int timeout_ms)
 {
     uint32_t status = 0;
+    timeout_ms = 500;
     auto t1 = chrono::high_resolution_clock::now();
     do
     {   //wait for status byte to change
@@ -65,7 +66,7 @@ int ConnectionLitePCIe::GetBuffersCount() const
 
 int ConnectionLitePCIe::CheckStreamSize(int size) const
 {
-    return size;
+    return 8; //size > 8 ? 8 : size;
 }
 
 int ConnectionLitePCIe::ReceiveData(char *buffer, int length, int epIndex, int timeout_ms)
@@ -86,6 +87,8 @@ int ConnectionLitePCIe::ReceiveData(char *buffer, int length, int epIndex, int t
     do
     {
         int bytesReceived = read(rd_ep_fd[epIndex], buffer+totalBytesReaded, length-totalBytesReaded);
+ 	if (bytesReceived < 0)
+	    std::terminate();
         if (bytesReceived == 0)
         {
             std::this_thread::sleep_for(std::chrono::microseconds(100));
@@ -127,6 +130,8 @@ int ConnectionLitePCIe::SendData(const char *buffer, int length, int epIndex, in
     do
     {
         int bytesSent = write(wr_ep_fd[epIndex], buffer+totalBytesSent, length-totalBytesSent);
+ 	if (bytesSent < 0)
+	    std::terminate();
         if (bytesSent == 0)
         {
             std::this_thread::sleep_for(std::chrono::microseconds(500));

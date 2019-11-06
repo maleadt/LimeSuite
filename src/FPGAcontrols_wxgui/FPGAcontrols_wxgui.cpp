@@ -330,7 +330,7 @@ void FPGAcontrols_wxgui::OnbtnLoadOnetoneClick(wxCommandEvent& event)
 
 void FPGAcontrols_wxgui::OnbtnLoadWCDMAClick(wxCommandEvent& event)
 {
-    const int samplesCnt = wcdma_wfm_len/4;
+    const int samplesCnt = wcdma_wfm_len/4/16;
     vector<int16_t> isamples;
     vector<int16_t> qsamples;
     isamples.resize(samplesCnt);

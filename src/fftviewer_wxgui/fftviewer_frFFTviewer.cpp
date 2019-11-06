@@ -380,7 +380,10 @@ void fftviewer_frFFTviewer::StreamingLoop(fftviewer_frFFTviewer* pthis, const un
 
     for (int i = 0; i < fftSize; i++)
     {
-        tx_buffer[i] = {i,i};
+        const double pi = acos(-1);
+        double w = 2*pi*i/8.0;
+        float amp = pthis->cmbFmt->GetSelection() == 1 ? 32767.0f : 2047.0f;
+        tx_buffer[i] = {amp*cos(w),amp*sin(w)};
     }
     vector<complex16_t> captureBuffer[cMaxChCount];
     uint32_t samplesToCapture[cMaxChCount];
@@ -399,7 +402,7 @@ void fftviewer_frFFTviewer::StreamingLoop(fftviewer_frFFTviewer* pthis, const un
     auto fmt = pthis->cmbFmt->GetSelection() == 1 ? lms_stream_t::LMS_FMT_I16 : lms_stream_t::LMS_FMT_I12;
     for(int i=0; i<channelsCount; ++i)
     {
-        pthis->rxStreams[i].channel = i + ch_offset;
+        pthis->rxStreams[i].channel = 2*i;// + ch_offset;
         pthis->rxStreams[i].fifoSize = fifoSize;
         pthis->rxStreams[i].isTx = false;
         pthis->rxStreams[i].dataFmt = fmt;
@@ -407,7 +410,7 @@ void fftviewer_frFFTviewer::StreamingLoop(fftviewer_frFFTviewer* pthis, const un
         LMS_SetupStream(pthis->lmsControl, &pthis->rxStreams[i]);
 
         pthis->txStreams[i].handle = 0;
-        pthis->txStreams[i].channel = i + ch_offset;
+        pthis->txStreams[i].channel = 2*i;// + ch_offset;
         pthis->txStreams[i].fifoSize = fifoSize;
         pthis->txStreams[i].isTx = true;
         pthis->txStreams[i].dataFmt = fmt;

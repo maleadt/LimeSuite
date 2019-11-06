@@ -1374,17 +1374,17 @@ int LMS7_Device::Init()
         lms->Modify_SPI_Reg_bits(LMS7param(MAC), 1);
         for (auto i : initVals)
             lms->SPI_write(i.adr, i.val, true);
-        EnableChannel(true, 2*i, false);
+        EnableChannel(true, 2*i, true);
         lms->Modify_SPI_Reg_bits(LMS7param(MAC), 2);
         for (auto i : initVals)
             if (i.adr >= 0x100)
                 lms->SPI_write(i.adr, i.val, true);
-        EnableChannel(false, 2*i+1, false);
-        EnableChannel(true, 2*i+1, false);
+        EnableChannel(false, 2*i+1, true);
+        EnableChannel(true, 2*i+1, true);
 
         lms->Modify_SPI_Reg_bits(LMS7param(MAC), 1);
     }
-    if (SetRate(10e6,2)!=0)
+    if (SetRate(30.72e6,2)!=0)
         return -1;
     return 0;
 }
