@@ -164,6 +164,19 @@ DEFUN_DLD (LimeLoadConfig, args, nargout,
     {
          return octave_value(-1);
     }
+
+    int chCnt = LMS_GetNumChannels(lmsDev, LMS_CH_RX);
+    chCnt = chCnt > maxChCnt ? maxChCnt : chCnt;
+    for(int ch=0; ch< chCnt; ++ch) //set antenna to update RF switches
+    {
+        int ant = LMS_GetAntenna(lmsDev, LMS_CH_RX, ch);
+        if(ant < 0 || LMS_SetAntenna(lmsDev, LMS_CH_RX, ch, ant) < 0)
+             octave_stdout << "Error setting Rx antenna for ch: " << ch << endl;
+        ant = LMS_GetAntenna(lmsDev, LMS_CH_TX, ch);
+        if(ant < 0 || LMS_SetAntenna(lmsDev, LMS_CH_TX, ch, ant) < 0)
+             octave_stdout << "Error setting Tx antenna for ch: " << ch << endl;
+    }
+
     octave_stdout << "Config loaded successfully: " << endl;
 
     return octave_value(0);
@@ -398,7 +411,7 @@ CH parameter is optional, valid values are 0 and 1")
 
 
 DEFUN_DLD (LimeTransceiveSamples, args, ,
-"RXSIGNAL = LimeTransceiveSamples( TXSIGNAL, CH, RXOFFSET) - transmit TXSIGNAL and receive RXSIGNAL (same length as TXSIGNAL).\n\
+"RXSIGNAL = LimeTransceiveSamples( TXSIGNAL, RXOFFSET, CH) - transmit TXSIGNAL and receive RXSIGNAL (same length as TXSIGNAL).\n\
  RXOFFSET [optional] - number of samples to skip at the beginning of receive (default 0)\n\
  CH [optional] - channel to use for transmit and receive, valid values are 0 and 1 (default 0)")
 {

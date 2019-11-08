@@ -281,11 +281,6 @@ API_EXPORT int CALL_CONV LMS_GPIODirWrite(lms_device_t *dev, const uint8_t* buff
     return conn ? conn->GPIODirWrite(buffer,len) : -1;
 }
 
-API_EXPORT int CALL_CONV LMS_EnableCalibCache(lms_device_t *dev, bool enable)
-{
-    return LMS_EnableCache(dev, enable);
-}
-
 API_EXPORT int CALL_CONV LMS_EnableCache(lms_device_t *dev, bool enable)
 {
     lime::LMS7_Device* lms = CheckDevice(dev);
@@ -478,12 +473,6 @@ API_EXPORT int CALL_CONV LMS_Calibrate(lms_device_t *device, bool dir_tx, size_t
     lime::LMS7_Device* lms = CheckDevice(device, chan);
     if (!lms)
         return -1;
-
-    if (lms->ReadLMSReg(0x2F) == 0x3840)
-    {
-        lime::error("Calibration not supported");
-        return -1;
-    }
 
     return lms->Calibrate(dir_tx, chan, bw, flags);
 }
@@ -722,6 +711,7 @@ API_EXPORT int CALL_CONV LMS_SetupStream(lms_device_t *device, lms_stream_t *str
     config.bufferLength = stream->fifoSize;
     config.channelID = stream->channel;
     config.performanceLatency = stream->throughputVsLatency;
+    config.align = stream->channel & LMS_ALIGN_CH_PHASE;
     switch(stream->dataFmt)
     {
         case lms_stream_t::LMS_FMT_F32:

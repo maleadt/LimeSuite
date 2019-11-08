@@ -141,8 +141,9 @@ int LMS7_LimeSDR_mini::SetFrequency(bool isTx, unsigned chan, double f_Hz)
     channel.cF_offset_nco = 0;
     if (setTDD(f_Hz) != 0)
         return -1;
-
-    return AutoRFPath(isTx, f_Hz);
+    if ((isTx && auto_tx_path) || (!isTx && auto_rx_path))
+        return AutoRFPath(isTx, f_Hz);
+    return 0;
 }
 
 std::vector<std::string> LMS7_LimeSDR_mini::GetPathNames(bool dir_tx, unsigned chan) const
@@ -157,7 +158,10 @@ int LMS7_LimeSDR_mini::Calibrate(bool dir_tx, unsigned chan, double bw, unsigned
 {
     //switch RF path to improve calibration results
     uint16_t value = fpga->ReadRegister(0x17);
-    fpga->WriteRegister(0x17, value^(3<<8));
+    uint16_t wr_val = value & (~0x3300);
+    wr_val |= lms_list[0]->GetBandTRF() == LMS_PATH_TX2 ? 0x1000 : 0x2000;
+    wr_val |= lms_list[0]->GetPathRFE() == LMS7002M::PathRFE::PATH_RFE_LNAW ?  0x100 : 0x200;
+    fpga->WriteRegister(0x17, wr_val);
     int ret = LMS7_Device::Calibrate(dir_tx, chan, bw, flags);
     fpga->WriteRegister(0x17, value);
     return ret;
@@ -244,6 +248,7 @@ int LMS7_LimeSDR_mini::SetRate(double f_Hz, int oversample)
      double fpgaRxPLL = lms->GetReferenceClk_TSP(lime::LMS7002M::Rx);
      if (fpga->SetInterfaceFreq(fpgaTxPLL, fpgaRxPLL, 0) != 0)
         return -1;
+     lms->ResetLogicregisters();
      return 0;
 }
 

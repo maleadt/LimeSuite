@@ -37,7 +37,7 @@ struct LIME_API StreamConfig
     bool isTx;
 
     uint8_t channelID;
-
+    bool align;
     float performanceLatency;
 
     //! Possible stream data formats
@@ -145,6 +145,7 @@ public:
     void ReceivePacketsLoop();
     void TransmitPacketsLoop();
 private:
+    void ResizeChannelBuffers();
     void AlignRxTSP();
     void AlignRxRF(bool restoreValues);
     void AlignQuadrature(bool restoreValues);
