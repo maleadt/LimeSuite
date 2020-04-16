@@ -1,7 +1,8 @@
-Release 19.04.1 (pending)
+Release 20.01.0 (pending)
 ==========================
 
 LimeSuite library changes:
+- Including LimeRFE support
 - Update CGEN calculation to allow lower CGEN values
 - Configure RF switches (when possible) to avoid transmission during calibration
 - Automatically reconfigure GFIR LPF after sample rate change
@@ -22,6 +23,7 @@ SoapyLMS:
 - Automatically use wide enough bandwidth setting for RF frequencies bellow 30 MHz
 - Remove master clock setting
 - Add setting descriptions
+- Implement read for setting advertised by getSettingInfo()
 
 LimeSuiteGUI:
 - Add panel for LMS API function testing
@@ -35,7 +37,6 @@ Octave plugin:
 
 Other changes:
 - Fix LimeQuickTest not outputing to windows command line
-
 
 Release 19.04.0 (2019-05-09)
 ==========================
